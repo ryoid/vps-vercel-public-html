@@ -1,0 +1,45 @@
+import { generateHydrationScript, renderToString } from 'solid-js/web'
+import { PageLayout } from './PageLayout'
+import { escapeInject, dangerouslySkipEscape } from 'vite-plugin-ssr'
+import { PageContext } from './types'
+
+export { render }
+export { passToClient }
+
+// See https://vite-plugin-ssr.com/data-fetching
+const passToClient = ['pageProps', 'documentProps', 'routeParams']
+
+function render(pageContext: PageContext) {
+  const { Page, routeParams } = pageContext
+  const pageProps = pageContext.pageProps || {}
+  
+    // Pass route params to pageProps
+    pageProps.routeParams = routeParams
+    
+  const pageHtml = renderToString(() => (
+    <PageLayout>
+      <Page {...pageProps} />
+    </PageLayout>
+  ))
+
+  // See https://vite-plugin-ssr.com/head
+  // Use documentProps from context first (set onBeforeRender), fallback to pageExports
+  let documentProps = pageContext.documentProps || pageContext.pageExports.documentProps
+  const title = documentProps?.title || 'Vite SSR app'
+  const description = documentProps?.description || 'App using Vite + vite-plugin-ssr'
+
+  return escapeInject`<!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" href="/logo.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="${description}" />
+        <title>${title}</title>
+        ${dangerouslySkipEscape(generateHydrationScript())}
+      </head>
+      <body>
+        <div id="page-view">${dangerouslySkipEscape(pageHtml)}</div>
+      </body>
+    </html>`
+}
